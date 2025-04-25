@@ -150,9 +150,7 @@ export default function BondsPage() {
     switch (status) {
       case "active":
         return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500">Active</Badge>
-        \
-       )
-     case "closed":
+      case "closed":
         return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500">Closed</Badge>
       case "pending":
         return (
