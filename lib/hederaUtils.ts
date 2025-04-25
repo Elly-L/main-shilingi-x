@@ -10,7 +10,7 @@ export const hederaIdToAddress = (accountId: string): string => {
     const idNumber = Number.parseInt(cleanId, 10)
 
     // Convert to hex and pad to 20 bytes (40 hex chars)
-    return ethers.utils.hexZeroPad(ethers.utils.hexlify(idNumber), 20)
+    return ethers.zeroPadValue(ethers.toBeHex(idNumber), 20)
   } catch (error) {
     console.error("Error converting Hedera ID to address:", error)
     throw error

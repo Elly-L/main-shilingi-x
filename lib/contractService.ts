@@ -1,4 +1,4 @@
-import { ethers } from "ethers"
+import { ethers, Contract } from "ethers"
 import ShilingiXAssetManagerABI from "../contracts/ShilingiXAssetManager.json"
 
 // Contract address for Hedera testnet
@@ -8,9 +8,9 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0.0.589592
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://testnet.hashio.io/api"
 
 // Hedera platform wallet credentials
-const HEDERA_ACCOUNT_ID = process.env.HEDERA_ACCOUNT_ID || "0.0.5771173"
+const HEDERA_ACCOUNT_ID = process.env.NEXT_PUBLIC_HEDERA_ACCOUNT_ID || "0.0.5771173"
 const HEDERA_PRIVATE_KEY =
-  process.env.HEDERA_PRIVATE_KEY || "9f4f65ac66abe554e6213fadc6cc72af5b085a40296e454c25ead25f8f80d3ea"
+  process.env.NEXT_PUBLIC_HEDERA_PRIVATE_KEY || "9f4f65ac66abe554e6213fadc6cc72af5b085a40296e454c25ead25f8f80d3ea"
 
 // Asset types from the smart contract
 export enum AssetType {
@@ -29,7 +29,7 @@ export enum AssetStatus {
 // Initialize ethers provider
 const getProvider = () => {
   // For server-side or when window.ethereum is not available
-  return new ethers.providers.JsonRpcProvider(RPC_URL)
+  return new ethers.JsonRpcProvider(RPC_URL)
 }
 
 // Get platform wallet
@@ -60,18 +60,18 @@ export const contractService = {
       const contract = getContract()
       const assetIds = await contract.getAssetIds()
       const assets = await Promise.all(
-        assetIds.map(async (id) => {
+        assetIds.map(async (id: any) => {
           const asset = await contract.getAsset(id)
           return asset
         }),
       )
 
-      return assets.map((asset) => ({
+      return assets.map((asset: any) => ({
         id: asset.id.toString(),
         name: asset.name,
         description: asset.description,
         assetType: asset.assetType === AssetType.BOND ? "bond" : "equity",
-        price: ethers.utils.formatUnits(asset.price, 2), // Assuming price is in cents
+        price: ethers.formatUnits(asset.price, 2), // Assuming price is in cents
         totalSupply: asset.totalSupply.toString(),
         availableSupply: asset.availableSupply.toString(),
         interestRate: asset.interestRate.toNumber() / 100, // Convert basis points to percentage
@@ -87,13 +87,13 @@ export const contractService = {
   },
 
   // Get user balance
-  getUserBalance: async (userId) => {
+  getUserBalance: async (userId: string | number) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(userId), 20))
       const balance = await contract.getUserBalance(userAddress)
-      return ethers.utils.formatUnits(balance, 2) // Assuming balance is in cents
+      return ethers.formatUnits(balance, 2) // Assuming balance is in cents
     } catch (error) {
       console.error("Error fetching user balance:", error)
       throw error
@@ -101,16 +101,16 @@ export const contractService = {
   },
 
   // Get user's asset holdings
-  getUserAssetBalance: async (userId, assetId) => {
+  getUserAssetBalance: async (userId: string | number, assetId: string | number) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(userId), 20))
       const assetBalance = await contract.getUserAssetBalance(userAddress, assetId)
 
       return {
         quantity: assetBalance.quantity.toString(),
-        purchasePrice: ethers.utils.formatUnits(assetBalance.purchasePrice, 2),
+        purchasePrice: ethers.formatUnits(assetBalance.purchasePrice, 2),
         purchaseDate: new Date(assetBalance.purchaseDate.toNumber() * 1000).toISOString(),
       }
     } catch (error) {
@@ -124,21 +124,26 @@ export const contractService = {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(userId), 20))
 
       // Convert amount to wei (smallest unit)
-      const amountInCents = ethers.utils.parseUnits(amount.toString(), 2)
+      const amountInCents = ethers.parseUnits(amount.toString(), 2)
 
       // Call the buyAssetFor function which allows the platform to buy on behalf of the user
       const tx = await contract.buyAssetFor(userAddress, assetId, quantity, amountInCents)
       const receipt = await tx.wait()
 
       // Find the AssetBought event
-      const event = receipt.events.find((e) => e.event === "AssetBought")
+      const event = receipt.logs.find((log) => {
+        const parsedLog = contract.interface.parseLog(log)
+        return parsedLog?.name === "AssetBought"
+      })
+      const parsedEvent = contract.interface.parseLog(event)
+      
       return {
-        transactionId: event.args.transactionId.toString(),
+        transactionId: parsedEvent.args.transactionId.toString(),
         success: true,
-        blockchainTxHash: receipt.transactionHash,
+        blockchainTxHash: receipt.hash,
       }
     } catch (error) {
       console.error("Error buying asset:", error)
@@ -151,18 +156,23 @@ export const contractService = {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(userId), 20))
 
       // Call the sellAssetFor function which allows the platform to sell on behalf of the user
       const tx = await contract.sellAssetFor(userAddress, assetId, quantity)
       const receipt = await tx.wait()
 
       // Find the AssetSold event
-      const event = receipt.events.find((e) => e.event === "AssetSold")
+      const event = receipt.logs.find((log) => {
+        const parsedLog = contract.interface.parseLog(log)
+        return parsedLog?.name === "AssetSold"
+      })
+      const parsedEvent = contract.interface.parseLog(event)
+      
       return {
-        transactionId: event.args.transactionId.toString(),
+        transactionId: parsedEvent.args.transactionId.toString(),
         success: true,
-        blockchainTxHash: receipt.transactionHash,
+        blockchainTxHash: receipt.hash,
       }
     } catch (error) {
       console.error("Error selling asset:", error)
@@ -176,7 +186,7 @@ export const contractService = {
       const contract = getContract(true)
 
       // Convert price to cents
-      const priceInCents = ethers.utils.parseUnits(price.toString(), 2)
+      const priceInCents = ethers.parseUnits(price.toString(), 2)
 
       // Convert interest rate to basis points (multiply by 100)
       const interestRateBps = Math.floor(interestRate * 100)
@@ -198,11 +208,16 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetIssued event
-      const event = receipt.events.find((e) => e.event === "AssetIssued")
+      const event = receipt.logs.find((log) => {
+        const parsedLog = contract.interface.parseLog(log)
+        return parsedLog?.name === "AssetIssued"
+      })
+      const parsedEvent = contract.interface.parseLog(event)
+      
       return {
-        assetId: event.args.assetId.toString(),
+        assetId: parsedEvent.args.assetId.toString(),
         success: true,
-        blockchainTxHash: receipt.transactionHash,
+        blockchainTxHash: receipt.hash,
       }
     } catch (error) {
       console.error("Error issuing asset:", error)
@@ -215,7 +230,7 @@ export const contractService = {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(userId), 20))
 
       const transactionIds = await contract.getUserTransactionIds(userAddress)
       const transactions = await Promise.all(
@@ -230,7 +245,7 @@ export const contractService = {
         assetId: tx.assetId.toString(),
         isBuy: tx.isBuy,
         quantity: tx.quantity.toString(),
-        price: ethers.utils.formatUnits(tx.price, 2),
+        price: ethers.formatUnits(tx.price, 2),
         timestamp: new Date(tx.timestamp.toNumber() * 1000).toISOString(),
       }))
     } catch (error) {
