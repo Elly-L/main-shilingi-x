@@ -18,6 +18,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Shillingi X - Web3 Micro-Investment Platform",
   description: "Invest in tokenized government securities, infrastructure bonds, and equities with as little as KES 50",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({

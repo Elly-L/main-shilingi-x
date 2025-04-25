@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Plus, Minus, AlertCircle, ArrowUpRight } from "lucide-react"
+import { supabase } from "@/lib/supabaseClient"
 import { useAuth } from "@/contexts/auth-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { contractService } from "@/lib/contractService"
-import { supabase } from "@/lib/supabaseClient"
 
 interface InvestmentPurchaseProps {
   investmentId?: string
@@ -43,10 +43,27 @@ export function InvestmentPurchase({
   const [isFetchingBalance, setIsFetchingBalance] = useState(true)
   const [walletBalance, setWalletBalance] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
+  const [isBlockchainEnabled, setIsBlockchainEnabled] = useState(false)
   const [transactionDetails, setTransactionDetails] = useState<{
     txId: string
     blockchainTxHash: string
   } | null>(null)
+
+  // Check if blockchain is connected
+  useEffect(() => {
+    const checkBlockchainConnection = async () => {
+      try {
+        const connected = await contractService.isConnected()
+        setIsBlockchainEnabled(connected)
+        console.log("Blockchain connection:", connected ? "Connected" : "Not connected")
+      } catch (error) {
+        console.error("Error checking blockchain connection:", error)
+        setIsBlockchainEnabled(false)
+      }
+    }
+
+    checkBlockchainConnection()
+  }, [])
 
   // Fetch wallet balance when component mounts
   useEffect(() => {
@@ -57,16 +74,54 @@ export function InvestmentPurchase({
         setIsFetchingBalance(true)
         console.log("Fetching wallet balance for user:", user.id)
 
-        const blockchainBalance = await contractService.getUserBalance(user.id)
-        const balanceNumber = Number(blockchainBalance)
-        console.log("Blockchain wallet balance:", balanceNumber)
-        setWalletBalance(balanceNumber)
-      } catch (blockchainError) {
-        console.error("Error fetching blockchain balance:", blockchainError)
-        setError("Could not fetch blockchain wallet balance.")
+        // Try to get balance from blockchain first if enabled
+        if (isBlockchainEnabled) {
+          try {
+            const blockchainBalance = await contractService.getUserBalance(user.id)
+            const balanceNumber = Number(blockchainBalance)
+            console.log("Blockchain wallet balance:", balanceNumber)
+            setWalletBalance(balanceNumber)
+            setIsFetchingBalance(false)
+            return
+          } catch (blockchainError) {
+            console.error("Error fetching blockchain balance, falling back to database:", blockchainError)
+          }
+        }
+
+        // Fallback to database balance
+        const { data, error } = await supabase.from("wallets").select("balance").eq("user_id", user.id).single()
+
+        if (error) {
+          console.error("Error fetching wallet balance:", error)
+          if (error.code === "PGRST116") {
+            // No wallet found, create one
+            const { data: newWallet, error: createError } = await supabase
+              .from("wallets")
+              .insert([{ user_id: user.id, balance: 0 }])
+              .select()
+              .single()
+
+            if (createError) {
+              console.error("Error creating wallet:", createError)
+              throw createError
+            }
+
+            if (newWallet) {
+              console.log("Created new wallet with balance:", newWallet.balance)
+              setWalletBalance(Number(newWallet.balance))
+            }
+          } else {
+            throw error
+          }
+        } else if (data) {
+          console.log("Fetched wallet balance from database:", data.balance)
+          setWalletBalance(Number(data.balance))
+        }
+      } catch (error) {
+        console.error("Failed to fetch wallet balance:", error)
         toast({
           title: "Error",
-          description: "Could not fetch blockchain wallet balance",
+          description: "Failed to fetch wallet balance",
           variant: "destructive",
         })
       } finally {
@@ -75,7 +130,7 @@ export function InvestmentPurchase({
     }
 
     fetchWalletBalance()
-  }, [user, toast])
+  }, [user, toast, isBlockchainEnabled])
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -128,7 +183,6 @@ export function InvestmentPurchase({
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       const {
@@ -141,53 +195,150 @@ export function InvestmentPurchase({
 
       const numAmount = Number(amount)
 
-      // Attempt blockchain transaction
-      console.log("Attempting blockchain investment purchase")
-      const result = await contractService.buyAsset(
-        currentUser.id,
-        investmentId,
-        1, // Quantity - assuming 1 unit per purchase for simplicity
-        numAmount,
-      )
+      // Try blockchain transaction first if enabled
+      if (isBlockchainEnabled && investmentId) {
+        try {
+          console.log("Attempting blockchain investment purchase")
+          const result = await contractService.buyAsset(
+            currentUser.id,
+            investmentId,
+            1, // Quantity - assuming 1 unit per purchase for simplicity
+            numAmount,
+          )
 
-      if (result.success) {
-        console.log("Blockchain investment successful:", result)
+          if (result.success) {
+            console.log("Blockchain investment successful:", result)
 
-        // Store transaction details for display
-        setTransactionDetails({
-          txId: result.transactionId,
-          blockchainTxHash: result.blockchainTxHash,
-        })
+            // Store transaction details for display
+            setTransactionDetails({
+              txId: result.transactionId,
+              blockchainTxHash: result.blockchainTxHash,
+            })
 
-        // Record the transaction in the database for reference
-        const { error: transactionError } = await supabase.from("transactions").insert([
+            // Record the transaction in the database for reference
+            const { error: transactionError } = await supabase.from("transactions").insert([
+              {
+                user_id: currentUser.id,
+                amount: -numAmount,
+                transaction_type: "investment",
+                description: `Investment in ${investmentName} (Blockchain TX: ${result.blockchainTxHash})`,
+                source: investmentName,
+                status: "completed",
+                blockchain_tx_hash: result.blockchainTxHash,
+              },
+            ])
+
+            if (transactionError) {
+              console.error("Error recording blockchain transaction:", transactionError)
+            }
+
+            toast({
+              title: "Investment Successful",
+              description: `You have successfully invested KES ${numAmount.toLocaleString()} in ${investmentName} via blockchain`,
+              variant: "default",
+            })
+
+            // Don't call onPurchaseComplete yet, let the user see the transaction details first
+            return
+          }
+        } catch (blockchainError) {
+          console.error("Blockchain investment failed, falling back to database:", blockchainError)
+        }
+      }
+
+      // Fallback to database transaction
+      console.log("Using database for investment purchase")
+
+      // Check wallet balance again
+      const { data: walletData, error: walletCheckError } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", currentUser.id)
+        .single()
+
+      if (walletCheckError) throw walletCheckError
+
+      if (Number(walletData.balance) < numAmount) {
+        throw new Error(`Insufficient funds. Your wallet balance is KES ${Number(walletData.balance).toLocaleString()}`)
+      }
+
+      // Update wallet balance
+      const { error: updateWalletError } = await supabase
+        .from("wallets")
+        .update({ balance: Number(walletData.balance) - numAmount })
+        .eq("user_id", currentUser.id)
+
+      if (updateWalletError) throw updateWalletError
+
+      // Record the transaction
+      const { data: transactionData, error: transactionError } = await supabase
+        .from("transactions")
+        .insert([
           {
             user_id: currentUser.id,
             amount: -numAmount,
             transaction_type: "investment",
-            description: `Investment in ${investmentName} (Blockchain TX: ${result.blockchainTxHash})`,
+            description: `Investment in ${investmentName}`,
             source: investmentName,
             status: "completed",
-            blockchain_tx_hash: result.blockchainTxHash,
           },
         ])
+        .select()
 
-        if (transactionError) {
-          console.error("Error recording blockchain transaction:", transactionError)
+      if (transactionError) throw transactionError
+
+      // Create investment record - handle the case where investmentId might be a number
+      let investmentOptionId = investmentId
+
+      // If we're dealing with a numeric ID from the URL, we need to fetch the actual UUID
+      if (investmentId && !isNaN(Number(investmentId))) {
+        console.log("Numeric investment ID detected:", investmentId)
+
+        // Fetch the actual investment option by its numeric ID
+        const { data: optionData, error: optionError } = await supabase
+          .from("investment_options")
+          .select("id")
+          .eq("id", investmentId)
+          .single()
+
+        if (optionError) {
+          console.error("Error fetching investment option:", optionError)
+          throw new Error(`Investment option not found: ${optionError.message}`)
         }
 
-        toast({
-          title: "Investment Successful",
-          description: `You have successfully invested KES ${numAmount.toLocaleString()} in ${investmentName} via blockchain`,
-          variant: "default",
-        })
-
-        // Call onPurchaseComplete if provided
-        if (onPurchaseComplete) {
-          onPurchaseComplete()
+        if (optionData) {
+          investmentOptionId = optionData.id
+          console.log("Found investment option ID:", investmentOptionId)
         }
-      } else {
-        throw new Error(`Blockchain transaction failed: ${result.error}`)
+      }
+
+      const { error: investmentError } = await supabase.from("investments").insert([
+        {
+          user_id: currentUser.id,
+          investment_option_id: investmentOptionId,
+          investment_name: investmentName,
+          investment_type: investmentType,
+          amount: numAmount,
+          interest_rate: interestRate,
+          status: "active",
+          maturity_date: maturityDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ])
+
+      if (investmentError) throw investmentError
+
+      // Update local wallet balance
+      setWalletBalance((prev) => prev - numAmount)
+
+      toast({
+        title: "Investment Successful",
+        description: `You have successfully invested KES ${numAmount.toLocaleString()} in ${investmentName}`,
+        variant: "default",
+      })
+
+      // Call onPurchaseComplete if provided
+      if (onPurchaseComplete) {
+        onPurchaseComplete()
       }
     } catch (error: any) {
       console.error("Investment error:", error)
@@ -214,6 +365,12 @@ export function InvestmentPurchase({
             <span className="font-bold">KES {walletBalance.toLocaleString()}</span>
           )}
         </div>
+        {isBlockchainEnabled && (
+          <div className="mt-2 text-xs text-green-600 flex items-center">
+            <div className="w-2 h-2 rounded-full bg-green-600 mr-1"></div>
+            Blockchain enabled
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -274,7 +431,7 @@ export function InvestmentPurchase({
             Processing...
           </>
         ) : (
-          `Invest Now`
+          `Invest Now${isBlockchainEnabled ? " via Blockchain" : ""}`
         )}
       </Button>
       {transactionDetails && (
