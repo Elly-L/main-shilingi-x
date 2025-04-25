@@ -1,10 +1,12 @@
 [build]
-  command = "pnpm run build"
+  command = "npx pnpm install --frozen-lockfile && npx pnpm run build"
   publish = ".next"
 
 [build.environment]
   NEXT_PUBLIC_SUPABASE_URL = "https://zcaabteyobabratetdsc.supabase.co"
   NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjYWFidGV5b2JhYnJhdGV0ZHNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNzE3MTYsImV4cCI6MjA1ODg0NzcxNn0.BobZBc2fQzqNDKmXkwqrUihmxtwzKOWbj07cdcVQOtk"
+  NPM_FLAGS = "--shamefully-hoist"
+  NETLIFY_USE_PNPM = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs" 
