@@ -61,7 +61,7 @@
     "@emotion/is-prop-valid": "latest",
     "framer-motion": "latest",
     "@supabase/supabase-js": "latest",
-    "ethers": "^6.7.1"
+    "ethers": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
