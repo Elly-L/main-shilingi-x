@@ -48,6 +48,7 @@ export function AppSidebar() {
     { name: "Government Securities", href: "/investments/government", icon: Building, indent: true },
     { name: "Infrastructure Bonds", href: "/investments/infrastructure", icon: Building, indent: true },
     { name: "Tokenized Equities", href: "/investments/equities", icon: Coins, indent: true },
+    { name: "Blockchain Investments", href: "/investments/blockchain", icon: Coins, indent: true },
     { name: "Wallet", href: "/wallet", icon: Wallet },
     { name: "Transactions", href: "/transactions", icon: CreditCard },
     { name: "Profile", href: "/profile", icon: User },
@@ -127,7 +128,7 @@ export function AppSidebar() {
                     <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
                       <Avatar className="h-8 w-8">
                         <AvatarImage
-                          src={user.user_metadata?.avatar_url}
+                          src={user.user_metadata?.avatar_url || "/placeholder.svg"}
                           alt={user.user_metadata?.full_name || user.email}
                         />
                         <AvatarFallback>{getUserInitials()}</AvatarFallback>
@@ -212,7 +213,7 @@ export function AppSidebar() {
                 <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={user.user_metadata?.avatar_url}
+                      src={user.user_metadata?.avatar_url || "/placeholder.svg"}
                       alt={user.user_metadata?.full_name || user.email}
                     />
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
@@ -229,7 +230,7 @@ export function AppSidebar() {
                     <Button variant="outline" size="icon" className="w-full h-10">
                       <Avatar className="h-7 w-7">
                         <AvatarImage
-                          src={user.user_metadata?.avatar_url}
+                          src={user.user_metadata?.avatar_url || "/placeholder.svg"}
                           alt={user.user_metadata?.full_name || user.email}
                         />
                         <AvatarFallback>{getUserInitials()}</AvatarFallback>

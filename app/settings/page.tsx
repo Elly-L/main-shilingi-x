@@ -1,7 +1,9 @@
 "use client"
 
+import { CardFooter } from "@/components/ui/card"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -39,6 +41,9 @@ export default function SettingsPage() {
   const [language, setLanguage] = useState("en")
   const [theme, setTheme] = useState("light")
 
+  // Admin settings
+  const [contractAddress, setContractAddress] = useState(process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "")
+
   const { user, updateProfile } = useAuth()
 
   useEffect(() => {
@@ -70,6 +75,18 @@ export default function SettingsPage() {
         })
         setIsSaving(false)
         return
+      }
+
+      // Update contract address in environment variables
+      if (contractAddress !== process.env.NEXT_PUBLIC_CONTRACT_ADDRESS) {
+        // This is a placeholder. In a real application, you would need to securely update the environment variable.
+        // This might involve calling an API endpoint on your server that has the necessary permissions.
+        console.warn("Updating environment variables from the client is not secure. Implement a server-side solution.")
+        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS = contractAddress // This will only change it in the current process
+        toast({
+          title: "Contract address updated (client-side only)",
+          description: "Remember to update the environment variable on the server for persistent changes.",
+        })
       }
 
       toast({
@@ -215,7 +232,7 @@ export default function SettingsPage() {
                           </div>
                           <div>
                             <p className="font-medium">Connected Wallet</p>
-                            <p className="text-xs text-muted-foreground">0x1a2b3c4d5e6f7g8h9i0j</p>
+                            <p className="text-sm text-muted-foreground">0x1a2b3c4d5e6f7g8h9i0j</p>
                           </div>
                         </div>
                         <Button variant="outline" size="sm">

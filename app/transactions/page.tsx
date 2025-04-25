@@ -5,13 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowDownUp, Calendar, ChevronDown, Download, Filter, Loader2, Search, CheckCircle } from "lucide-react"
+import {
+  ArrowDownUp,
+  Calendar,
+  ChevronDown,
+  Download,
+  Filter,
+  Loader2,
+  Search,
+  CheckCircle,
+  ExternalLink,
+} from "lucide-react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { ProtectedRoute } from "@/components/protected-route"
 import { supabase } from "@/lib/supabaseClient"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 export default function TransactionsPage() {
   const { user } = useAuth()
@@ -315,25 +326,23 @@ export default function TransactionsPage() {
                                 {formatDate(transaction.created_at)}
                               </td>
                               <td className="p-4 align-middle">
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(transaction.status || "completed")}`}
-                                >
-                                  {(transaction.status || "completed").charAt(0).toUpperCase() +
-                                    (transaction.status || "completed").slice(1)}
-                                </span>
-                                {transaction.blockchain_tx_hash && (
-                                  <div className="mt-1">
-                                    <a
-                                      href={`https://hashscan.io/testnet/transaction/${transaction.blockchain_tx_hash}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center text-xs text-primary hover:text-primary/80"
+                                <div className="flex flex-col gap-1">
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(transaction.status || "completed")}`}
+                                  >
+                                    {(transaction.status || "completed").charAt(0).toUpperCase() +
+                                      (transaction.status || "completed").slice(1)}
+                                  </span>
+                                  {transaction.blockchain_tx_hash && (
+                                    <Badge
+                                      variant="outline"
+                                      className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
                                     >
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                      Verified on blockchain
-                                    </a>
-                                  </div>
-                                )}
+                                      <CheckCircle className="h-3 w-3" />
+                                      Blockchain Verified
+                                    </Badge>
+                                  )}
+                                </div>
                               </td>
                               <td className="p-4 align-middle">
                                 <div>
@@ -341,6 +350,17 @@ export default function TransactionsPage() {
                                   <div className="text-xs text-muted-foreground">
                                     Via {transaction.source || "System"}
                                   </div>
+                                  {transaction.blockchain_tx_hash && (
+                                    <a
+                                      href={`https://hashscan.io/testnet/transaction/${transaction.blockchain_tx_hash}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center mt-1 text-xs text-primary hover:text-primary/80"
+                                    >
+                                      <ExternalLink className="h-3 w-3 mr-1" />
+                                      View on Hashscan
+                                    </a>
+                                  )}
                                 </div>
                               </td>
                             </motion.tr>

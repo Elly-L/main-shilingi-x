@@ -29,7 +29,12 @@ export enum AssetStatus {
 // Initialize ethers provider
 const getProvider = () => {
   // For server-side or when window.ethereum is not available
-  return new ethers.providers.JsonRpcProvider(RPC_URL)
+  try {
+    return new ethers.providers.JsonRpcProvider(RPC_URL)
+  } catch (error) {
+    console.error("Error initializing JsonRpcProvider:", error)
+    throw error // Re-throw the error to be caught in the calling function
+  }
 }
 
 // Get platform wallet
@@ -50,6 +55,20 @@ const getContract = (withSigner = false) => {
   }
 
   return contract
+}
+
+// Add these helper functions after the getContract function
+// Get user wallet for connecting to the contract
+const getUserWallet = (privateKey) => {
+  const provider = getProvider()
+  return new ethers.Wallet(privateKey, provider)
+}
+
+// Connect a user directly to the contract with their private key
+const connectUserToContract = (privateKey) => {
+  const userWallet = getUserWallet(privateKey)
+  const contract = getContract()
+  return contract.connect(userWallet)
 }
 
 // Service functions
@@ -248,6 +267,83 @@ export const contractService = {
     } catch (error) {
       console.error("Contract connection error:", error)
       return false
+    }
+  },
+
+  // Add these functions to the contractService object
+  // Buy an asset directly (user has their own wallet)
+  buyAssetDirect: async (privateKey, assetId, quantity) => {
+    try {
+      const userContract = connectUserToContract(privateKey)
+      const tx = await userContract.buyAsset(assetId, quantity)
+      const receipt = await tx.wait()
+
+      // Find the AssetBought event
+      const event = receipt.events.find((e) => e.event === "AssetBought")
+      return {
+        transactionId: event.args.transactionId.toString(),
+        success: true,
+        blockchainTxHash: receipt.transactionHash,
+      }
+    } catch (error) {
+      console.error("Error buying asset directly:", error)
+      throw error
+    }
+  },
+
+  // Sell an asset directly (user has their own wallet)
+  sellAssetDirect: async (privateKey, assetId, quantity) => {
+    try {
+      const userContract = connectUserToContract(privateKey)
+      const tx = await userContract.sellAsset(assetId, quantity)
+      const receipt = await tx.wait()
+
+      // Find the AssetSold event
+      const event = receipt.events.find((e) => e.event === "AssetSold")
+      return {
+        transactionId: event.args.transactionId.toString(),
+        success: true,
+        blockchainTxHash: receipt.transactionHash,
+      }
+    } catch (error) {
+      console.error("Error selling asset directly:", error)
+      throw error
+    }
+  },
+
+  // Get all transactions for an asset
+  getAssetTransactions: async (assetId) => {
+    try {
+      const contract = getContract()
+      // This would require a custom function in the contract
+      // For now, we'll return a placeholder
+      return []
+    } catch (error) {
+      console.error("Error fetching asset transactions:", error)
+      throw error
+    }
+  },
+
+  // Check if a transaction exists and is valid
+  verifyTransaction: async (transactionId) => {
+    try {
+      const contract = getContract()
+      const tx = await contract.getTransaction(transactionId)
+      return {
+        exists: tx.id.toString() === transactionId,
+        details: {
+          id: tx.id.toString(),
+          userAddress: tx.userAddress,
+          assetId: tx.assetId.toString(),
+          isBuy: tx.isBuy,
+          quantity: tx.quantity.toString(),
+          price: ethers.utils.formatUnits(tx.price, 2),
+          timestamp: new Date(tx.timestamp.toNumber() * 1000).toISOString(),
+        },
+      }
+    } catch (error) {
+      console.error("Error verifying transaction:", error)
+      return { exists: false, details: null }
     }
   },
 }
