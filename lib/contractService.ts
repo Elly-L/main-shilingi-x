@@ -120,7 +120,7 @@ export const contractService = {
   },
 
   // Buy an asset on behalf of a user
-  buyAsset: async (userId, assetId, quantity, amount) => {
+  buyAsset: async (userId: string | number, assetId: string | number, quantity: number, amount: number | string) => {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
@@ -134,7 +134,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetBought event
-      const event = receipt.logs.find((log) => {
+      const event = receipt.logs.find((log: any) => {
         const parsedLog = contract.interface.parseLog(log)
         return parsedLog?.name === "AssetBought"
       })
@@ -152,7 +152,7 @@ export const contractService = {
   },
 
   // Sell an asset on behalf of a user
-  sellAsset: async (userId, assetId, quantity) => {
+  sellAsset: async (userId: string | number, assetId: string | number, quantity: number) => {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
@@ -163,7 +163,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetSold event
-      const event = receipt.logs.find((log) => {
+      const event = receipt.logs.find((log: any) => {
         const parsedLog = contract.interface.parseLog(log)
         return parsedLog?.name === "AssetSold"
       })
@@ -181,7 +181,16 @@ export const contractService = {
   },
 
   // Issue a new asset (admin only)
-  issueAsset: async (name, description, assetType, price, totalSupply, interestRate, maturityDate, metadata) => {
+  issueAsset: async (
+    name: string, 
+    description: string, 
+    assetType: string, 
+    price: number | string, 
+    totalSupply: number, 
+    interestRate: number, 
+    maturityDate: string | null, 
+    metadata: string
+  ) => {
     try {
       const contract = getContract(true)
 
@@ -208,7 +217,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetIssued event
-      const event = receipt.logs.find((log) => {
+      const event = receipt.logs.find((log: any) => {
         const parsedLog = contract.interface.parseLog(log)
         return parsedLog?.name === "AssetIssued"
       })
@@ -226,7 +235,7 @@ export const contractService = {
   },
 
   // Get user's transaction history
-  getUserTransactions: async (userId) => {
+  getUserTransactions: async (userId: string | number) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
@@ -234,13 +243,13 @@ export const contractService = {
 
       const transactionIds = await contract.getUserTransactionIds(userAddress)
       const transactions = await Promise.all(
-        transactionIds.map(async (id) => {
+        transactionIds.map(async (id: any) => {
           const tx = await contract.getTransaction(id)
           return tx
         }),
       )
 
-      return transactions.map((tx) => ({
+      return transactions.map((tx: any) => ({
         id: tx.id.toString(),
         assetId: tx.assetId.toString(),
         isBuy: tx.isBuy,

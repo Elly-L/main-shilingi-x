@@ -32,8 +32,8 @@ export const addressToHederaId = (address: string): string => {
 }
 
 // Format gas fees for display
-export const formatGasFee = (gasFee: ethers.BigNumber): string => {
-  return ethers.utils.formatUnits(gasFee, 8) + " HBAR"
+export const formatGasFee = (gasFee: bigint): string => {
+  return ethers.formatUnits(gasFee, 8) + " HBAR"
 }
 
 // Estimate gas for a transaction
