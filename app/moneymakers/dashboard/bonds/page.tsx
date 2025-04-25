@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+import "./badges.css"
 
 export default function BondsPage() {
   const { toast } = useToast()
@@ -149,15 +149,13 @@ export default function BondsPage() {
   const getStatusBadge = (status) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500">Active</Badge>
+        return <span className="badge badge-success">Active</span>
       case "closed":
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500">Closed</Badge>
+        return <span className="badge badge-danger">Closed</span>
       case "pending":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-500">Pending</Badge>
-        )
+        return <span className="badge badge-warning">Pending</span>
       default:
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500">Active</Badge>
+        return <span className="badge badge-success">Active</span>
     }
   }
 
@@ -217,9 +215,7 @@ export default function BondsPage() {
                     <td className="p-4 align-middle">3650 days</td>
                     <td className="p-4 align-middle">KES 100</td>
                     <td className="p-4 align-middle">
-                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500">
-                        Active
-                      </Badge>
+                      <span className="badge badge-success">Active</span>
                     </td>
                     <td className="p-4 align-middle">
                       <DropdownMenu>
