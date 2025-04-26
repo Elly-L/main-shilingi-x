@@ -28,53 +28,18 @@ export enum AssetStatus {
 
 // Initialize ethers provider
 const getProvider = () => {
-  // Check if we're using ethers v5 or v6
-  if (typeof ethers.providers !== 'undefined') {
-    // ethers v5
-    return new ethers.providers.JsonRpcProvider(RPC_URL)
-  } else {
-    // ethers v6
-    return new ethers.JsonRpcProvider(RPC_URL)
-  }
-}
-
-// Helper function to handle different ethers versions for formatting units
-const formatUnits = (value: ethers.BigNumberish, decimals: number): string => {
-  if (typeof ethers.utils !== 'undefined') {
-    // ethers v5
-    return ethers.utils.formatUnits(value, decimals)
-  } else {
-    // ethers v6
-    return ethers.formatUnits(value, decimals)
-  }
-}
-
-// Helper function to handle different ethers versions for parsing units
-const parseUnits = (value: string, decimals: number) => {
-  if (typeof ethers.utils !== 'undefined') {
-    // ethers v5
-    return ethers.utils.parseUnits(value, decimals)
-  } else {
-    // ethers v6
-    return ethers.parseUnits(value, decimals)
-  }
-}
-
-// Helper function to handle different ethers versions for hexZeroPad and hexlify
-const addressFromUserId = (userId: string | number) => {
-  if (typeof ethers.utils !== 'undefined') {
-    // ethers v5
-    return ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
-  } else {
-    // ethers v6
-    return ethers.hexZeroPad(ethers.hexlify(userId), 20)
-  }
+  return new ethers.providers.JsonRpcProvider(RPC_URL)
 }
 
 // Get platform wallet
 const getPlatformWallet = () => {
   const provider = getProvider()
   return new ethers.Wallet(HEDERA_PRIVATE_KEY, provider)
+}
+
+// Helper function to convert user ID to address format
+const addressFromUserId = (userId: string | number) => {
+  return ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
 }
 
 // Get contract instance
@@ -99,18 +64,18 @@ export const contractService = {
       const contract = getContract()
       const assetIds = await contract.getAssetIds()
       const assets = await Promise.all(
-        assetIds.map(async (id) => {
+        assetIds.map(async (id: any) => {
           const asset = await contract.getAsset(id)
           return asset
         }),
       )
 
-      return assets.map((asset) => ({
+      return assets.map((asset: any) => ({
         id: asset.id.toString(),
         name: asset.name,
         description: asset.description,
         assetType: asset.assetType === AssetType.BOND ? "bond" : "equity",
-        price: formatUnits(asset.price, 2), // Assuming price is in cents
+        price: ethers.utils.formatUnits(asset.price, 2), // Assuming price is in cents
         totalSupply: asset.totalSupply.toString(),
         availableSupply: asset.availableSupply.toString(),
         interestRate: asset.interestRate.toNumber() / 100, // Convert basis points to percentage
@@ -132,7 +97,7 @@ export const contractService = {
       // Convert Supabase user ID to Ethereum address format if needed
       const userAddress = addressFromUserId(userId)
       const balance = await contract.getUserBalance(userAddress)
-      return formatUnits(balance, 2) // Assuming balance is in cents
+      return ethers.utils.formatUnits(balance, 2) // Assuming balance is in cents
     } catch (error) {
       console.error("Error fetching user balance:", error)
       throw error
@@ -149,7 +114,7 @@ export const contractService = {
 
       return {
         quantity: assetBalance.quantity.toString(),
-        purchasePrice: formatUnits(assetBalance.purchasePrice, 2),
+        purchasePrice: ethers.utils.formatUnits(assetBalance.purchasePrice, 2),
         purchaseDate: new Date(assetBalance.purchaseDate.toNumber() * 1000).toISOString(),
       }
     } catch (error) {
@@ -166,14 +131,14 @@ export const contractService = {
       const userAddress = addressFromUserId(userId)
 
       // Convert amount to wei (smallest unit)
-      const amountInCents = parseUnits(amount.toString(), 2)
+      const amountInCents = ethers.utils.parseUnits(amount.toString(), 2)
 
       // Call the buyAssetFor function which allows the platform to buy on behalf of the user
       const tx = await contract.buyAssetFor(userAddress, assetId, quantity, amountInCents)
       const receipt = await tx.wait()
 
       // Find the AssetBought event
-      const event = receipt.events.find((e) => e.event === "AssetBought")
+      const event = receipt.events.find((e: any) => e.event === "AssetBought")
       return {
         transactionId: event.args.transactionId.toString(),
         success: true,
@@ -197,7 +162,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetSold event
-      const event = receipt.events.find((e) => e.event === "AssetSold")
+      const event = receipt.events.find((e: any) => e.event === "AssetSold")
       return {
         transactionId: event.args.transactionId.toString(),
         success: true,
@@ -224,7 +189,7 @@ export const contractService = {
       const contract = getContract(true)
 
       // Convert price to cents
-      const priceInCents = parseUnits(price.toString(), 2)
+      const priceInCents = ethers.utils.parseUnits(price.toString(), 2)
 
       // Convert interest rate to basis points (multiply by 100)
       const interestRateBps = Math.floor(interestRate * 100)
@@ -246,7 +211,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetIssued event
-      const event = receipt.events.find((e) => e.event === "AssetIssued")
+      const event = receipt.events.find((e: any) => e.event === "AssetIssued")
       return {
         assetId: event.args.assetId.toString(),
         success: true,
@@ -267,18 +232,18 @@ export const contractService = {
 
       const transactionIds = await contract.getUserTransactionIds(userAddress)
       const transactions = await Promise.all(
-        transactionIds.map(async (id) => {
+        transactionIds.map(async (id: any) => {
           const tx = await contract.getTransaction(id)
           return tx
         }),
       )
 
-      return transactions.map((tx) => ({
+      return transactions.map((tx: any) => ({
         id: tx.id.toString(),
         assetId: tx.assetId.toString(),
         isBuy: tx.isBuy,
         quantity: tx.quantity.toString(),
-        price: formatUnits(tx.price, 2),
+        price: ethers.utils.formatUnits(tx.price, 2),
         timestamp: new Date(tx.timestamp.toNumber() * 1000).toISOString(),
       }))
     } catch (error) {

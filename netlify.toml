@@ -9,7 +9,8 @@
   NEXT_PUBLIC_CONTRACT_ADDRESS = "0.0.5895928"
   NEXT_PUBLIC_RPC_URL = "https://testnet.hashio.io/api"
   HEDERA_ACCOUNT_ID = "0.0.5771173"
+  # Add placeholder values for Supabase - these should be overridden in Netlify dashboard
+  NEXT_PUBLIC_SUPABASE_URL=https://zcaabteyobabratetdsc.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjYWFidGV5b2JhYnJhdGV0ZHNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNzE3MTYsImV4cCI6MjA1ODg0NzcxNn0.BobZBc2fQzqNDKmXkwqrUihmxtwzKOWbj07cdcVQOtk 
   # Note: Do not store sensitive keys in this file
-  # Add HEDERA_PRIVATE_KEY in the Netlify dashboard
-  # Add NEXT_PUBLIC_SUPABASE_URL in the Netlify dashboard
-  # Add NEXT_PUBLIC_SUPABASE_ANON_KEY in the Netlify dashboard 
+  # Add HEDERA_PRIVATE_KEY in the Netlify dashboard with proper value 
