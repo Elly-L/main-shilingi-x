@@ -28,6 +28,7 @@ export enum AssetStatus {
 
 // Initialize ethers provider
 const getProvider = () => {
+  // For server-side or when window.ethereum is not available
   return new ethers.providers.JsonRpcProvider(RPC_URL)
 }
 
@@ -35,11 +36,6 @@ const getProvider = () => {
 const getPlatformWallet = () => {
   const provider = getProvider()
   return new ethers.Wallet(HEDERA_PRIVATE_KEY, provider)
-}
-
-// Helper function to convert user ID to address format
-const addressFromUserId = (userId: string | number) => {
-  return ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
 }
 
 // Get contract instance
@@ -64,13 +60,13 @@ export const contractService = {
       const contract = getContract()
       const assetIds = await contract.getAssetIds()
       const assets = await Promise.all(
-        assetIds.map(async (id: any) => {
+        assetIds.map(async (id) => {
           const asset = await contract.getAsset(id)
           return asset
         }),
       )
 
-      return assets.map((asset: any) => ({
+      return assets.map((asset) => ({
         id: asset.id.toString(),
         name: asset.name,
         description: asset.description,
@@ -91,11 +87,11 @@ export const contractService = {
   },
 
   // Get user balance
-  getUserBalance: async (userId: string | number) => {
+  getUserBalance: async (userId) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = addressFromUserId(userId)
+      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
       const balance = await contract.getUserBalance(userAddress)
       return ethers.utils.formatUnits(balance, 2) // Assuming balance is in cents
     } catch (error) {
@@ -105,11 +101,11 @@ export const contractService = {
   },
 
   // Get user's asset holdings
-  getUserAssetBalance: async (userId: string | number, assetId: number) => {
+  getUserAssetBalance: async (userId, assetId) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = addressFromUserId(userId)
+      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
       const assetBalance = await contract.getUserAssetBalance(userAddress, assetId)
 
       return {
@@ -124,11 +120,11 @@ export const contractService = {
   },
 
   // Buy an asset on behalf of a user
-  buyAsset: async (userId: string | number, assetId: number, quantity: number, amount: number) => {
+  buyAsset: async (userId, assetId, quantity, amount) => {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = addressFromUserId(userId)
+      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
 
       // Convert amount to wei (smallest unit)
       const amountInCents = ethers.utils.parseUnits(amount.toString(), 2)
@@ -138,7 +134,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetBought event
-      const event = receipt.events.find((e: any) => e.event === "AssetBought")
+      const event = receipt.events.find((e) => e.event === "AssetBought")
       return {
         transactionId: event.args.transactionId.toString(),
         success: true,
@@ -151,18 +147,18 @@ export const contractService = {
   },
 
   // Sell an asset on behalf of a user
-  sellAsset: async (userId: string | number, assetId: number, quantity: number) => {
+  sellAsset: async (userId, assetId, quantity) => {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = addressFromUserId(userId)
+      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
 
       // Call the sellAssetFor function which allows the platform to sell on behalf of the user
       const tx = await contract.sellAssetFor(userAddress, assetId, quantity)
       const receipt = await tx.wait()
 
       // Find the AssetSold event
-      const event = receipt.events.find((e: any) => e.event === "AssetSold")
+      const event = receipt.events.find((e) => e.event === "AssetSold")
       return {
         transactionId: event.args.transactionId.toString(),
         success: true,
@@ -175,16 +171,7 @@ export const contractService = {
   },
 
   // Issue a new asset (admin only)
-  issueAsset: async (
-    name: string,
-    description: string,
-    assetType: string,
-    price: number,
-    totalSupply: number,
-    interestRate: number,
-    maturityDate: string | null,
-    metadata: string
-  ) => {
+  issueAsset: async (name, description, assetType, price, totalSupply, interestRate, maturityDate, metadata) => {
     try {
       const contract = getContract(true)
 
@@ -211,7 +198,7 @@ export const contractService = {
       const receipt = await tx.wait()
 
       // Find the AssetIssued event
-      const event = receipt.events.find((e: any) => e.event === "AssetIssued")
+      const event = receipt.events.find((e) => e.event === "AssetIssued")
       return {
         assetId: event.args.assetId.toString(),
         success: true,
@@ -224,21 +211,21 @@ export const contractService = {
   },
 
   // Get user's transaction history
-  getUserTransactions: async (userId: string | number) => {
+  getUserTransactions: async (userId) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = addressFromUserId(userId)
+      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
 
       const transactionIds = await contract.getUserTransactionIds(userAddress)
       const transactions = await Promise.all(
-        transactionIds.map(async (id: any) => {
+        transactionIds.map(async (id) => {
           const tx = await contract.getTransaction(id)
           return tx
         }),
       )
 
-      return transactions.map((tx: any) => ({
+      return transactions.map((tx) => ({
         id: tx.id.toString(),
         assetId: tx.assetId.toString(),
         isBuy: tx.isBuy,
@@ -264,5 +251,3 @@ export const contractService = {
     }
   },
 }
-
-export default contractService
