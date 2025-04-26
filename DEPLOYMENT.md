@@ -6,13 +6,15 @@ This guide explains the steps to deploy the ShilingiX application successfully t
 
 1. **Ethers.js Version Compatibility**
    - Fixed the compatibility issues with ethers.js by explicitly setting version 5.7.2 in package.json
-   - Updated the contractService.ts to work with both ethers v5 and v6
+   - Simplified contractService.ts to only use ethers v5 syntax
 
-2. **Contract ABI**
+2. **Supabase Integration**
+   - Modified supabaseClient.ts to handle missing environment variables during build
+   - Added placeholder values in netlify.toml to prevent build errors
+   - Updated next.config.mjs to avoid static generation issues during build
+
+3. **Contract ABI**
    - Created a proper ABI file for the ShilingiXAssetManager contract
-
-3. **Environment Variables**
-   - Added necessary environment variables for both Supabase and smart contract interaction
 
 ## Deployment Steps
 
@@ -37,7 +39,21 @@ Connect your GitHub repository to Netlify and use the following build settings:
 - **Build command**: `pnpm run build`
 - **Publish directory**: `.next`
 
-### 3. Post-Deployment Verification
+### 3. Netlify Configuration
+
+Make sure to add the Netlify plugin for Next.js:
+
+```bash
+netlify plugins:install @netlify/plugin-nextjs
+```
+
+This is already configured in the netlify.toml file.
+
+### 4. Verify Environment Variables
+
+Double-check that all environment variables are correctly set in the Netlify dashboard. The build will fail if the Supabase URL and anonymous key are not provided.
+
+### 5. Post-Deployment Verification
 
 After deployment, verify that:
 
@@ -52,7 +68,8 @@ If you encounter issues:
 
 1. **Build Errors**: 
    - Check the Netlify build logs for specific errors
-   - Verify that all required environment variables are set
+   - Make sure all environment variables are correctly set in the Netlify dashboard
+   - Try disabling static generation completely in the Netlify dashboard
 
 2. **Smart Contract Connection Issues**:
    - Confirm that the contract address and RPC URL are correct
@@ -61,9 +78,11 @@ If you encounter issues:
 3. **Supabase Errors**:
    - Verify that your Supabase project is properly set up
    - Check that the provided URL and anonymous key are correct
+   - Ensure that the Supabase client is initialized only when needed
 
 4. **Ethers.js Issues**:
    - If you see ethers.js-related errors, ensure package.json specifies version 5.7.2
+   - Check for any syntax that might be using v6 features
 
 ## Contact
 
