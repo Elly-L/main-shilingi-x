@@ -1,0 +1,15 @@
+[build]
+  command = "pnpm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NEXT_PUBLIC_CONTRACT_ADDRESS = "0.0.5895928"
+  NEXT_PUBLIC_RPC_URL = "https://testnet.hashio.io/api"
+  HEDERA_ACCOUNT_ID = "0.0.5771173"
+  # Note: Do not store sensitive keys in this file
+  # Add HEDERA_PRIVATE_KEY in the Netlify dashboard
+  # Add NEXT_PUBLIC_SUPABASE_URL in the Netlify dashboard
+  # Add NEXT_PUBLIC_SUPABASE_ANON_KEY in the Netlify dashboard 

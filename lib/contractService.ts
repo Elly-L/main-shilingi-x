@@ -28,8 +28,47 @@ export enum AssetStatus {
 
 // Initialize ethers provider
 const getProvider = () => {
-  // For server-side or when window.ethereum is not available
-  return new ethers.providers.JsonRpcProvider(RPC_URL)
+  // Check if we're using ethers v5 or v6
+  if (typeof ethers.providers !== 'undefined') {
+    // ethers v5
+    return new ethers.providers.JsonRpcProvider(RPC_URL)
+  } else {
+    // ethers v6
+    return new ethers.JsonRpcProvider(RPC_URL)
+  }
+}
+
+// Helper function to handle different ethers versions for formatting units
+const formatUnits = (value: ethers.BigNumberish, decimals: number): string => {
+  if (typeof ethers.utils !== 'undefined') {
+    // ethers v5
+    return ethers.utils.formatUnits(value, decimals)
+  } else {
+    // ethers v6
+    return ethers.formatUnits(value, decimals)
+  }
+}
+
+// Helper function to handle different ethers versions for parsing units
+const parseUnits = (value: string, decimals: number) => {
+  if (typeof ethers.utils !== 'undefined') {
+    // ethers v5
+    return ethers.utils.parseUnits(value, decimals)
+  } else {
+    // ethers v6
+    return ethers.parseUnits(value, decimals)
+  }
+}
+
+// Helper function to handle different ethers versions for hexZeroPad and hexlify
+const addressFromUserId = (userId: string | number) => {
+  if (typeof ethers.utils !== 'undefined') {
+    // ethers v5
+    return ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+  } else {
+    // ethers v6
+    return ethers.hexZeroPad(ethers.hexlify(userId), 20)
+  }
 }
 
 // Get platform wallet
@@ -71,7 +110,7 @@ export const contractService = {
         name: asset.name,
         description: asset.description,
         assetType: asset.assetType === AssetType.BOND ? "bond" : "equity",
-        price: ethers.utils.formatUnits(asset.price, 2), // Assuming price is in cents
+        price: formatUnits(asset.price, 2), // Assuming price is in cents
         totalSupply: asset.totalSupply.toString(),
         availableSupply: asset.availableSupply.toString(),
         interestRate: asset.interestRate.toNumber() / 100, // Convert basis points to percentage
@@ -87,13 +126,13 @@ export const contractService = {
   },
 
   // Get user balance
-  getUserBalance: async (userId) => {
+  getUserBalance: async (userId: string | number) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = addressFromUserId(userId)
       const balance = await contract.getUserBalance(userAddress)
-      return ethers.utils.formatUnits(balance, 2) // Assuming balance is in cents
+      return formatUnits(balance, 2) // Assuming balance is in cents
     } catch (error) {
       console.error("Error fetching user balance:", error)
       throw error
@@ -101,16 +140,16 @@ export const contractService = {
   },
 
   // Get user's asset holdings
-  getUserAssetBalance: async (userId, assetId) => {
+  getUserAssetBalance: async (userId: string | number, assetId: number) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = addressFromUserId(userId)
       const assetBalance = await contract.getUserAssetBalance(userAddress, assetId)
 
       return {
         quantity: assetBalance.quantity.toString(),
-        purchasePrice: ethers.utils.formatUnits(assetBalance.purchasePrice, 2),
+        purchasePrice: formatUnits(assetBalance.purchasePrice, 2),
         purchaseDate: new Date(assetBalance.purchaseDate.toNumber() * 1000).toISOString(),
       }
     } catch (error) {
@@ -120,14 +159,14 @@ export const contractService = {
   },
 
   // Buy an asset on behalf of a user
-  buyAsset: async (userId, assetId, quantity, amount) => {
+  buyAsset: async (userId: string | number, assetId: number, quantity: number, amount: number) => {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = addressFromUserId(userId)
 
       // Convert amount to wei (smallest unit)
-      const amountInCents = ethers.utils.parseUnits(amount.toString(), 2)
+      const amountInCents = parseUnits(amount.toString(), 2)
 
       // Call the buyAssetFor function which allows the platform to buy on behalf of the user
       const tx = await contract.buyAssetFor(userAddress, assetId, quantity, amountInCents)
@@ -147,11 +186,11 @@ export const contractService = {
   },
 
   // Sell an asset on behalf of a user
-  sellAsset: async (userId, assetId, quantity) => {
+  sellAsset: async (userId: string | number, assetId: number, quantity: number) => {
     try {
       const contract = getContract(true)
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = addressFromUserId(userId)
 
       // Call the sellAssetFor function which allows the platform to sell on behalf of the user
       const tx = await contract.sellAssetFor(userAddress, assetId, quantity)
@@ -171,12 +210,21 @@ export const contractService = {
   },
 
   // Issue a new asset (admin only)
-  issueAsset: async (name, description, assetType, price, totalSupply, interestRate, maturityDate, metadata) => {
+  issueAsset: async (
+    name: string,
+    description: string,
+    assetType: string,
+    price: number,
+    totalSupply: number,
+    interestRate: number,
+    maturityDate: string | null,
+    metadata: string
+  ) => {
     try {
       const contract = getContract(true)
 
       // Convert price to cents
-      const priceInCents = ethers.utils.parseUnits(price.toString(), 2)
+      const priceInCents = parseUnits(price.toString(), 2)
 
       // Convert interest rate to basis points (multiply by 100)
       const interestRateBps = Math.floor(interestRate * 100)
@@ -211,11 +259,11 @@ export const contractService = {
   },
 
   // Get user's transaction history
-  getUserTransactions: async (userId) => {
+  getUserTransactions: async (userId: string | number) => {
     try {
       const contract = getContract()
       // Convert Supabase user ID to Ethereum address format if needed
-      const userAddress = ethers.utils.hexZeroPad(ethers.utils.hexlify(userId), 20)
+      const userAddress = addressFromUserId(userId)
 
       const transactionIds = await contract.getUserTransactionIds(userAddress)
       const transactions = await Promise.all(
@@ -230,7 +278,7 @@ export const contractService = {
         assetId: tx.assetId.toString(),
         isBuy: tx.isBuy,
         quantity: tx.quantity.toString(),
-        price: ethers.utils.formatUnits(tx.price, 2),
+        price: formatUnits(tx.price, 2),
         timestamp: new Date(tx.timestamp.toNumber() * 1000).toISOString(),
       }))
     } catch (error) {
@@ -251,3 +299,5 @@ export const contractService = {
     }
   },
 }
+
+export default contractService
