@@ -14,6 +14,20 @@ import { supabase } from "@/lib/supabaseClient"
 import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+// This function is needed for static exports with dynamic routes
+// It tells Next.js which paths to pre-render
+export function generateStaticParams() {
+  // Pre-render these specific investment IDs
+  return [
+    { id: "1" },
+    { id: "2" },
+    { id: "3" },
+    { id: "4" },
+    { id: "5" },
+    { id: "6" },
+  ]
+}
+
 export default function InvestmentDetailPage() {
   const params = useParams()
   const router = useRouter()
