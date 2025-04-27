@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabaseClient"
 import { useAuth } from "@/contexts/auth-context"
 import { WalletDeposit } from "@/components/wallet-deposit"
 import { contractService } from "@/lib/contractService"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function WalletPage() {
   const { toast } = useToast()
@@ -23,6 +24,7 @@ export default function WalletPage() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [transactions, setTransactions] = useState([])
   const [error, setError] = useState(null)
+  const [showWalletInfo, setShowWalletInfo] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -130,7 +132,7 @@ export default function WalletPage() {
       console.error("Error fetching wallet data:", error)
       setError("Could not fetch your wallet data. Please try again later.")
       toast({
-        variant: "error",
+        variant: "destructive",
         title: "Error",
         description: "Could not fetch your wallet data",
       })
@@ -145,7 +147,6 @@ export default function WalletPage() {
     await fetchWalletData()
     setIsRefreshing(false)
     toast({
-      variant: "success",
       title: "Balance updated",
       description: "Your wallet balance has been updated",
     })
@@ -194,24 +195,24 @@ export default function WalletPage() {
 
   return (
     <ProtectedRoute>
-      <div className="container max-w-6xl mx-auto py-8 px-4">
-        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+      <div className="container max-w-6xl mx-auto py-4 sm:py-6 md:py-8 px-4">
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-4 sm:space-y-6">
           <motion.div
             variants={itemVariants}
-            className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-4"
           >
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Wallet</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Wallet</h1>
               <p className="text-muted-foreground">Manage your funds and transactions.</p>
             </div>
-            <div className="flex gap-2">
-              <Button asChild>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button asChild className="flex-1 sm:flex-none">
                 <Link href="/wallet/deposit">
                   <ArrowDown className="mr-2 h-4 w-4" />
                   Deposit
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="flex-1 sm:flex-none">
                 <Link href="/wallet/withdraw">
                   <ArrowUp className="mr-2 h-4 w-4" />
                   Withdraw
@@ -220,37 +221,33 @@ export default function WalletPage() {
             </div>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="md:col-span-3">
+          <motion.div variants={itemVariants} className="grid grid-cols-1 gap-4 sm:gap-6 mb-4 sm:mb-6">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
-                <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                  <span className="sr-only">Refresh</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => setShowWalletInfo(true)}>
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="sr-only">Wallet Information</span>
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                    <span className="sr-only">Refresh</span>
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">KES {walletBalance.toLocaleString()}</div>
+                <div className="text-2xl sm:text-3xl font-bold">KES {walletBalance.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground mt-1">Available for investment or withdrawal</div>
-                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md dark:bg-amber-900/20 dark:border-amber-900/30">
-                  <h3 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">
-                    Centralized Wallet System
-                  </h3>
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Shilingi X uses a centralized wallet system. Your funds are securely managed by the platform, and
-                    all transactions are processed through our system wallet. This allows for faster transactions and
-                    lower fees.
-                  </p>
-                </div>
               </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button asChild>
+              <CardFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
+                <Button asChild className="w-full sm:w-auto">
                   <Link href="/wallet/deposit">
                     <ArrowDown className="mr-2 h-4 w-4" />
                     Deposit
                   </Link>
                 </Button>
-                <Button variant="outline" asChild>
+                <Button variant="outline" asChild className="w-full sm:w-auto">
                   <Link href="/wallet/withdraw">
                     <ArrowUp className="mr-2 h-4 w-4" />
                     Withdraw
@@ -262,40 +259,46 @@ export default function WalletPage() {
 
           <motion.div variants={itemVariants}>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="overview">Transaction History</TabsTrigger>
                 <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
               </TabsList>
-              <TabsContent value="overview" className="space-y-6 mt-6">
+              <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
                 {transactions.length > 0 ? (
-                  <div className="rounded-md border">
-                    <div className="relative w-full overflow-auto">
+                  <div className="rounded-md border overflow-hidden">
+                    <div className="relative w-full overflow-x-auto">
                       <table className="w-full caption-bottom text-sm">
                         <thead>
                           <tr className="border-b transition-colors hover:bg-muted/50">
-                            <th className="h-12 px-4 text-left align-middle font-medium">Type</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium">Amount</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium">Source/Destination</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium">Date</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium">Status</th>
+                            <th className="h-10 px-2 sm:h-12 sm:px-4 text-left align-middle font-medium">Type</th>
+                            <th className="h-10 px-2 sm:h-12 sm:px-4 text-left align-middle font-medium">Amount</th>
+                            <th className="h-10 px-2 sm:h-12 sm:px-4 text-left align-middle font-medium hidden sm:table-cell">
+                              Source
+                            </th>
+                            <th className="h-10 px-2 sm:h-12 sm:px-4 text-left align-middle font-medium">Date</th>
+                            <th className="h-10 px-2 sm:h-12 sm:px-4 text-left align-middle font-medium hidden md:table-cell">
+                              Status
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {transactions.map((transaction) => (
                             <tr key={transaction.id} className="border-b transition-colors hover:bg-muted/50">
-                              <td className="p-4 align-middle capitalize">{transaction.transaction_type}</td>
+                              <td className="p-2 sm:p-4 align-middle capitalize">{transaction.transaction_type}</td>
                               <td
-                                className={`p-4 align-middle ${Number(transaction.amount) >= 0 ? "text-green-600" : "text-red-600"}`}
+                                className={`p-2 sm:p-4 align-middle ${Number(transaction.amount) >= 0 ? "text-green-600" : "text-red-600"}`}
                               >
                                 {Number(transaction.amount) >= 0 ? "+" : ""}
                                 {Number(transaction.amount).toLocaleString()} KES
                               </td>
-                              <td className="p-4 align-middle">{transaction.source || "-"}</td>
-                              <td className="p-4 align-middle">
+                              <td className="p-2 sm:p-4 align-middle hidden sm:table-cell">
+                                {transaction.source || "System"}
+                              </td>
+                              <td className="p-2 sm:p-4 align-middle text-xs sm:text-sm">
                                 {new Date(transaction.created_at).toLocaleDateString()}
                               </td>
-                              <td className="p-4 align-middle">
-                                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">
+                              <td className="p-2 sm:p-4 align-middle hidden md:table-cell">
+                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800">
                                   {transaction.status || "Completed"}
                                 </span>
                               </td>
@@ -314,7 +317,7 @@ export default function WalletPage() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="payment-methods" className="space-y-6 mt-6">
+              <TabsContent value="payment-methods" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Payment Methods</CardTitle>
@@ -328,7 +331,7 @@ export default function WalletPage() {
                         </div>
                         <div>
                           <p className="font-medium">M-Pesa</p>
-                          <p className="text-sm text-muted-foreground">+254 7XX XXX XXX</p>
+                          <p className="text-sm text-muted-foreground">07XX XXX XXX</p>
                         </div>
                       </div>
                       <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Default</div>
@@ -371,6 +374,51 @@ export default function WalletPage() {
             </Tabs>
           </motion.div>
         </motion.div>
+
+        {/* Wallet Information Dialog */}
+        <Dialog open={showWalletInfo} onOpenChange={setShowWalletInfo}>
+          <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Centralized Wallet System</DialogTitle>
+              <DialogDescription>Important information about how your funds are managed</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">How Shilingi X Wallet Works</h3>
+              <p>
+                Shilingi X uses a centralized wallet system. Your funds are securely managed by the platform, and all
+                transactions are processed through our system wallet. This allows for faster transactions and lower
+                fees.
+              </p>
+              <h3 className="text-lg font-medium">Blockchain Integration</h3>
+              <p>
+                While your funds are managed centrally, all investment transactions are recorded on the Hedera
+                blockchain using smart contract ID {contractService.getContractId()} for transparency and security.
+              </p>
+              <p>
+                Your wallet address on the blockchain is{" "}
+                {contractService.getWalletId ? contractService.getWalletId() : "Not connected"}, which is used to track
+                your investments and transactions.
+              </p>
+              <h3 className="text-lg font-medium">Security Measures</h3>
+              <p>
+                All funds are stored in secure, insured accounts. We employ industry-standard security practices to
+                protect your financial information and assets.
+              </p>
+              <h3 className="text-lg font-medium">Withdrawals and Deposits</h3>
+              <p>
+                Deposits are processed immediately through M-Pesa and other payment methods. Withdrawals are typically
+                processed within 24 hours during business days.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-4 dark:bg-amber-900/20 dark:border-amber-900/30">
+                <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300">Important Notice</h4>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                  This is a demonstration platform. In a production environment, all transactions would be secured with
+                  additional verification steps and regulatory compliance measures.
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </ProtectedRoute>
   )

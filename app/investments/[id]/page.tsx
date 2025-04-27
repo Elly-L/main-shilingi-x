@@ -30,44 +30,55 @@ export default function InvestmentDetailPage() {
         setIsLoading(true)
         console.log("Fetching investment details for ID:", params.id)
 
-        // Try to fetch from investment_options table
-        const { data, error } = await supabase.from("investment_options").select("*").eq("id", params.id).single()
+        // Check if the ID is a category name
+        const categoryNames = ["government", "infrastructure", "equity", "corporate"]
+        const paramId = typeof params.id === "string" ? params.id : params.id.toString()
 
-        if (error) {
-          console.error("Error fetching investment option:", error)
-
-          // If not found in database, use mock data
-          if (error.code === "PGRST116" || error.code === "42P01") {
-            console.log("Using mock data for investment")
-            const mockInvestment = getMockInvestment(params.id)
-            if (mockInvestment) {
-              setInvestment(mockInvestment)
-            } else {
-              throw new Error("Investment not found")
-            }
+        if (categoryNames.includes(paramId)) {
+          console.log("Category name detected instead of ID:", paramId)
+          // Use mock data for the category
+          const mockInvestment = getMockInvestmentByCategory(paramId)
+          if (mockInvestment) {
+            setInvestment(mockInvestment)
+            return
           } else {
+            throw new Error(`No investments found for category: ${paramId}`)
+          }
+        }
+
+        // Try to fetch from investment_options table
+        try {
+          const { data, error } = await supabase.from("investment_options").select("*").eq("id", params.id).single()
+
+          if (error) {
+            console.error("Error fetching investment option:", error)
             throw error
           }
-        } else if (data) {
-          console.log("Fetched investment option:", data)
 
-          // Format the data to match our expected structure
-          setInvestment({
-            id: data.id,
-            name: data.name,
-            type: data.type,
-            typeName: getTypeName(data.type),
-            description: data.description,
-            interestRate: data.interest_rate,
-            minInvestment: data.min_investment,
-            maxInvestment: data.available_amount,
-            maturityDate: data.term_days ? getMaturityDate(data.term_days) : "N/A",
-            termDays: data.term_days || 365,
-            risk: getRiskLevel(data.type, data.interest_rate),
-            icon: getIconForType(data.type),
-          })
-        } else {
-          console.log("Investment option not found, using mock data")
+          if (data) {
+            console.log("Fetched investment option:", data)
+
+            // Format the data to match our expected structure
+            setInvestment({
+              id: data.id,
+              name: data.name,
+              type: data.type,
+              typeName: getTypeName(data.type),
+              description: data.description,
+              interestRate: data.interest_rate,
+              minInvestment: data.min_investment,
+              maxInvestment: data.available_amount,
+              maturityDate: data.term_days ? getMaturityDate(data.term_days) : "N/A",
+              termDays: data.term_days || 365,
+              risk: getRiskLevel(data.type, data.interest_rate),
+              icon: getIconForType(data.type),
+            })
+          } else {
+            throw new Error("Investment option not found")
+          }
+        } catch (dbError) {
+          console.log("Database fetch failed, using mock data")
+          // If not found in database, use mock data
           const mockInvestment = getMockInvestment(params.id)
           if (mockInvestment) {
             setInvestment(mockInvestment)
@@ -143,9 +154,15 @@ export default function InvestmentDetailPage() {
     return "High"
   }
 
-  // Mock data for fallback
-  const getMockInvestment = (id) => {
-    const mockInvestments = [
+  // Get mock investment by category
+  const getMockInvestmentByCategory = (category) => {
+    const mockInvestments = getMockInvestments()
+    return mockInvestments.find((inv) => inv.type === category) || null
+  }
+
+  // Get all mock investments
+  const getMockInvestments = () => {
+    return [
       {
         id: "1",
         name: "Treasury Bond - 10 Year",
@@ -237,7 +254,11 @@ export default function InvestmentDetailPage() {
         icon: Coins,
       },
     ]
+  }
 
+  // Mock data for fallback
+  const getMockInvestment = (id) => {
+    const mockInvestments = getMockInvestments()
     return mockInvestments.find((inv) => inv.id === id || inv.id === String(id))
   }
 

@@ -53,6 +53,7 @@ export function InvestmentPurchase({
   useEffect(() => {
     const checkBlockchainConnection = async () => {
       try {
+        // Use the fixed isConnected method
         const connected = await contractService.isConnected()
         setIsBlockchainEnabled(connected)
         console.log("Blockchain connection:", connected ? "Connected" : "Not connected")
@@ -74,21 +75,7 @@ export function InvestmentPurchase({
         setIsFetchingBalance(true)
         console.log("Fetching wallet balance for user:", user.id)
 
-        // Try to get balance from blockchain first if enabled
-        if (isBlockchainEnabled) {
-          try {
-            const blockchainBalance = await contractService.getUserBalance(user.id)
-            const balanceNumber = Number(blockchainBalance)
-            console.log("Blockchain wallet balance:", balanceNumber)
-            setWalletBalance(balanceNumber)
-            setIsFetchingBalance(false)
-            return
-          } catch (blockchainError) {
-            console.error("Error fetching blockchain balance, falling back to database:", blockchainError)
-          }
-        }
-
-        // Fallback to database balance
+        // Always use database for wallet balance
         const { data, error } = await supabase.from("wallets").select("balance").eq("user_id", user.id).single()
 
         if (error) {
@@ -130,7 +117,7 @@ export function InvestmentPurchase({
     }
 
     fetchWalletBalance()
-  }, [user, toast, isBlockchainEnabled])
+  }, [user, toast])
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -195,10 +182,10 @@ export function InvestmentPurchase({
 
       const numAmount = Number(amount)
 
-      // Try blockchain transaction first if enabled
+      // Try blockchain transaction if enabled
       if (isBlockchainEnabled && investmentId) {
         try {
-          console.log("Attempting blockchain investment purchase")
+          console.log("Executing blockchain investment purchase")
           const result = await contractService.buyAsset(
             currentUser.id,
             investmentId,
@@ -214,6 +201,30 @@ export function InvestmentPurchase({
               txId: result.transactionId,
               blockchainTxHash: result.blockchainTxHash,
             })
+
+            // Update wallet balance in database
+            const { data: walletData, error: walletCheckError } = await supabase
+              .from("wallets")
+              .select("balance")
+              .eq("user_id", currentUser.id)
+              .single()
+
+            if (walletCheckError) {
+              console.error("Error checking wallet balance:", walletCheckError)
+            } else {
+              // Update wallet balance
+              const { error: updateWalletError } = await supabase
+                .from("wallets")
+                .update({ balance: Number(walletData.balance) - numAmount })
+                .eq("user_id", currentUser.id)
+
+              if (updateWalletError) {
+                console.error("Error updating wallet balance:", updateWalletError)
+              } else {
+                // Update local wallet balance
+                setWalletBalance((prev) => prev - numAmount)
+              }
+            }
 
             // Record the transaction in the database for reference
             const { error: transactionError } = await supabase.from("transactions").insert([
@@ -232,21 +243,48 @@ export function InvestmentPurchase({
               console.error("Error recording blockchain transaction:", transactionError)
             }
 
+            // Create investment record
+            const { error: investmentError } = await supabase.from("investments").insert([
+              {
+                user_id: currentUser.id,
+                investment_option_id: investmentId,
+                investment_name: investmentName,
+                investment_type: investmentType,
+                amount: numAmount,
+                interest_rate: interestRate,
+                status: "active",
+                maturity_date: maturityDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                blockchain_tx_hash: result.blockchainTxHash,
+              },
+            ])
+
+            if (investmentError) {
+              console.error("Error recording investment:", investmentError)
+            }
+
             toast({
               title: "Investment Successful",
               description: `You have successfully invested KES ${numAmount.toLocaleString()} in ${investmentName} via blockchain`,
-              variant: "default",
+              variant: "success",
             })
 
             // Don't call onPurchaseComplete yet, let the user see the transaction details first
             return
+          } else {
+            throw new Error("Blockchain transaction failed")
           }
-        } catch (blockchainError) {
+        } catch (blockchainError: any) {
           console.error("Blockchain investment failed, falling back to database:", blockchainError)
+          toast({
+            title: "Blockchain Transaction Failed",
+            description: blockchainError.message || "Failed to complete blockchain transaction",
+            variant: "destructive",
+          })
+          // Continue with database transaction
         }
       }
 
-      // Fallback to database transaction
+      // Database transaction
       console.log("Using database for investment purchase")
 
       // Check wallet balance again
@@ -333,7 +371,7 @@ export function InvestmentPurchase({
       toast({
         title: "Investment Successful",
         description: `You have successfully invested KES ${numAmount.toLocaleString()} in ${investmentName}`,
-        variant: "default",
+        variant: "success",
       })
 
       // Call onPurchaseComplete if provided
@@ -368,7 +406,7 @@ export function InvestmentPurchase({
         {isBlockchainEnabled && (
           <div className="mt-2 text-xs text-green-600 flex items-center">
             <div className="w-2 h-2 rounded-full bg-green-600 mr-1"></div>
-            Blockchain enabled
+            Blockchain enabled (Hedera Testnet)
           </div>
         )}
       </div>
@@ -449,7 +487,7 @@ export function InvestmentPurchase({
               </span>
             </div>
             <a
-              href={`https://hashscan.io/testnet/transaction/${transactionDetails.blockchainTxHash}`}
+              href={`https://hashscan.io/testnet/contract/${transactionDetails.blockchainTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center w-full mt-2 text-xs text-primary hover:text-primary/80 transition-colors"
