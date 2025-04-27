@@ -250,9 +250,10 @@ export default function WalletPage() {
                 <Button variant="outline" asChild className="w-full sm:w-auto">
                   <Link href="/wallet/withdraw">
                     <ArrowUp className="mr-2 h-4 w-4" />
-                  Withdraw
-                </Link>
-              </Button>
+                    Withdraw
+                  </Link>
+                </Button>
+              </CardFooter>
             </Card>
           </motion.div>
 
@@ -394,8 +395,9 @@ export default function WalletPage() {
                 blockchain using smart contract ID {contractService.getContractId()} for transparency and security.
               </p>
               <p>
-                Your wallet address on the blockchain is {contractService.getWalletId ? contractService.getWalletId() : "Not connected"}, which is used to track your
-                investments and transactions.
+                Your wallet address on the blockchain is{" "}
+                {contractService.getWalletId ? contractService.getWalletId() : "Not connected"}, which is used to track
+                your investments and transactions.
               </p>
               <h3 className="text-lg font-medium">Security Measures</h3>
               <p>
@@ -419,5 +421,5 @@ export default function WalletPage() {
         </Dialog>
       </div>
     </ProtectedRoute>
-  );
+  )
 }
