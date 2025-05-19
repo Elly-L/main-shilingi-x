@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { contractService } from "@/lib/contractService"
+import { IssueBondForm } from "@/components/IssueBondForm"
 
 export default function BondsPage() {
   const { toast } = useToast()
@@ -69,71 +70,47 @@ export default function BondsPage() {
     checkBlockchainConnection()
   }, [])
 
-  useEffect(() => {
-    const fetchBonds = async () => {
-      try {
-        // Try to fetch blockchain assets first if enabled
-        if (isBlockchainEnabled) {
-          try {
-            const blockchainAssets = await contractService.getAssets()
-            if (blockchainAssets && blockchainAssets.length > 0) {
-              console.log("Fetched assets from blockchain:", blockchainAssets)
+  const fetchBonds = async () => {
+    try {
+      setIsLoading(true)
+      // Try to fetch from investment_options table
+      const { data, error } = await supabase
+        .from("investment_options")
+        .select("*")
+        .order("created_at", { ascending: false })
 
-              // Format blockchain assets to match our UI expectations
-              const formattedAssets = blockchainAssets.map((asset) => ({
-                id: asset.id,
-                name: asset.name,
-                type: asset.assetType === "bond" ? asset.metadata?.type || "government" : "equity",
-                description: asset.description,
-                interest_rate: Number.parseFloat(asset.interestRate),
-                min_investment: Number.parseFloat(asset.price),
-                available_amount: Number.parseInt(asset.availableSupply),
-                term_days: asset.metadata?.duration ? Number.parseInt(asset.metadata.duration) : 365,
-                status: asset.status.toLowerCase(),
-                created_at: new Date().toISOString(),
-                blockchain_asset_id: asset.id,
-                is_blockchain: true,
-              }))
-
-              setBonds(formattedAssets)
-              setIsLoading(false)
-              return
-            }
-          } catch (blockchainError) {
-            console.error("Error fetching blockchain assets, falling back to database:", blockchainError)
-          }
-        }
-
-        // Try to fetch from investment_options table
-        const { data, error } = await supabase
-          .from("investment_options")
-          .select("*")
-          .order("created_at", { ascending: false })
-
-        if (error) {
-          console.error("Error fetching bonds:", error)
-          // If not found in database, use mock data
-          setBonds(getMockBonds())
-        } else if (data && data.length > 0) {
-          setBonds(data)
-        } else {
-          setBonds(getMockBonds())
-        }
-      } catch (err) {
-        console.error("Error in fetchBonds:", err)
+      if (error) {
+        console.error("Error fetching bonds:", error)
         toast({
-          title: "Error loading bonds",
-          description: err.message || "Failed to load bond data",
           variant: "destructive",
+          title: "Error loading bonds",
+          description: "Failed to load bond data",
         })
-        setBonds(getMockBonds())
-      } finally {
-        setIsLoading(false)
+        return
       }
-    }
 
+      if (data && data.length > 0) {
+        setBonds(data)
+      } else {
+        // If no bonds found, use mock data
+        setBonds(getMockBonds())
+      }
+    } catch (err: any) {
+      console.error("Error in fetchBonds:", err)
+      toast({
+        variant: "destructive",
+        title: "Error loading bonds",
+        description: err.message || "Failed to load bond data",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Call fetchBonds on component mount
+  useEffect(() => {
     fetchBonds()
-  }, [toast, isBlockchainEnabled])
+  }, [])
 
   // Mock data for fallback
   const getMockBonds = () => {
@@ -320,7 +297,7 @@ export default function BondsPage() {
   const handleIssueBondSuccess = () => {
     setIsIssueBondModalOpen(false)
     // Refresh the bonds list
-    window.location.reload()
+    fetchBonds()
   }
 
   if (isLoading) {
@@ -682,7 +659,6 @@ export default function BondsPage() {
             <DialogDescription>Create a new bond offering on the platform.</DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            {/* Import and use the IssueBond component */}
             {isIssueBondModalOpen && (
               <div className="py-2">
                 <div className="text-center mb-4">
@@ -694,11 +670,7 @@ export default function BondsPage() {
                     </p>
                   )}
                 </div>
-                {/* This would be replaced with the actual IssueBond component */}
-                <div className="text-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-                  <p>Loading bond issuance form...</p>
-                </div>
+                <IssueBondForm onSuccess={handleIssueBondSuccess} />
               </div>
             )}
           </div>
