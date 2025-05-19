@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -31,7 +30,7 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
   })
 
   // Check if blockchain is connected
-  useState(() => {
+  useEffect(() => {
     const checkBlockchainConnection = async () => {
       try {
         const connected = await contractService.isConnected()
@@ -189,16 +188,6 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
         </Alert>
       )}
 
-      {isBlockchainEnabled && (
-        <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-900">
-          <div className="flex items-center">
-            <div className="w-2 h-2 rounded-full bg-green-600 mr-2"></div>
-            <AlertTitle>Blockchain Enabled</AlertTitle>
-          </div>
-          <AlertDescription>This bond will be issued on the Hedera blockchain</AlertDescription>
-        </Alert>
-      )}
-
       <div className="space-y-2">
         <Label htmlFor="name">Bond Name</Label>
         <Input
@@ -319,7 +308,7 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
             Processing...
           </>
         ) : (
-          `Issue Bond${isBlockchainEnabled ? " on Blockchain" : ""}`
+          "Issue Bond"
         )}
       </Button>
     </form>
