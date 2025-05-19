@@ -98,7 +98,8 @@ export function IssueBondForm({ onSuccess }: IssueBondFormProps) {
         maturity_date: maturityDate.toISOString(),
         created_at: new Date().toISOString(),
         total_invested: 0,
-        investors_count: 0
+        investors_count: 0,
+        is_blockchain: isBlockchainEnabled
       }
 
       // Try blockchain issuance first if enabled
@@ -122,7 +123,6 @@ export function IssueBondForm({ onSuccess }: IssueBondFormProps) {
           if (result.success) {
             // Add blockchain data to bond data
             bondData.id = result.assetId
-            bondData.blockchain_tx_hash = result.blockchainTxHash
           }
         } catch (blockchainError) {
           console.error("Blockchain bond issuance failed:", blockchainError)
@@ -133,7 +133,21 @@ export function IssueBondForm({ onSuccess }: IssueBondFormProps) {
       // Save to database
       const { data, error: dbError } = await supabase
         .from("investment_options")
-        .insert(bondData)
+        .insert({
+          name: formData.name,
+          description: formData.description,
+          type: formData.type,
+          interest_rate: Number(formData.interestRate),
+          term_days: Number(formData.termDays),
+          min_investment: Number(formData.minInvestment),
+          available_amount: Number(formData.availableAmount),
+          status: formData.status,
+          maturity_date: maturityDate.toISOString(),
+          created_at: new Date().toISOString(),
+          total_invested: 0,
+          investors_count: 0,
+          is_blockchain: isBlockchainEnabled
+        })
         .select()
 
       if (dbError) throw dbError
