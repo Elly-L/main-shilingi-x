@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +12,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { contractService } from "@/lib/contractService"
 import { supabase } from "@/lib/supabaseClient"
 
-export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
+interface IssueBondFormProps {
+  onSuccess?: () => void
+}
+
+export function IssueBondForm({ onSuccess }: IssueBondFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +24,7 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    type: "government", // Default type
+    type: "government",
     interestRate: "",
     termDays: "",
     minInvestment: "",
@@ -35,7 +38,6 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
       try {
         const connected = await contractService.isConnected()
         setIsBlockchainEnabled(connected)
-        console.log("Blockchain connection:", connected ? "Connected" : "Not connected")
       } catch (error) {
         console.error("Error checking blockchain connection:", error)
         setIsBlockchainEnabled(false)
@@ -62,8 +64,7 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
     if (!formData.interestRate || isNaN(Number(formData.interestRate))) return "Valid interest rate is required"
     if (!formData.termDays || isNaN(Number(formData.termDays))) return "Valid term days is required"
     if (!formData.minInvestment || isNaN(Number(formData.minInvestment))) return "Valid minimum investment is required"
-    if (!formData.availableAmount || isNaN(Number(formData.availableAmount)))
-      return "Valid available amount is required"
+    if (!formData.availableAmount || isNaN(Number(formData.availableAmount))) return "Valid available amount is required"
     return null
   }
 
@@ -84,15 +85,29 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
       const maturityDate = new Date()
       maturityDate.setDate(maturityDate.getDate() + Number(formData.termDays))
 
+      // Prepare bond data
+      const bondData = {
+        name: formData.name,
+        description: formData.description,
+        type: formData.type,
+        interest_rate: Number(formData.interestRate),
+        term_days: Number(formData.termDays),
+        min_investment: Number(formData.minInvestment),
+        available_amount: Number(formData.availableAmount),
+        status: formData.status,
+        maturity_date: maturityDate.toISOString(),
+        created_at: new Date().toISOString(),
+        total_invested: 0,
+        investors_count: 0
+      }
+
       // Try blockchain issuance first if enabled
       if (isBlockchainEnabled) {
         try {
-          console.log("Attempting to issue bond on blockchain")
-
           const result = await contractService.issueAsset(
             formData.name,
             formData.description,
-            formData.type === "equity" ? "equity" : "bond", // Convert to contract enum
+            formData.type === "equity" ? "equity" : "bond",
             Number(formData.minInvestment),
             Number(formData.availableAmount),
             Number(formData.interestRate),
@@ -105,59 +120,23 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
           )
 
           if (result.success) {
-            console.log("Blockchain bond issuance successful:", result)
-
-            // Also record in database for UI display
-            const { error: dbError } = await supabase.from("investment_options").insert({
-              id: result.assetId, // Use blockchain asset ID
-              name: formData.name,
-              description: formData.description,
-              type: formData.type,
-              interest_rate: Number(formData.interestRate),
-              term_days: Number(formData.termDays),
-              min_investment: Number(formData.minInvestment),
-              available_amount: Number(formData.availableAmount),
-              status: formData.status,
-              blockchain_asset_id: result.assetId,
-              blockchain_tx_hash: result.blockchainTxHash,
-            })
-
-            if (dbError) {
-              console.error("Error recording bond in database:", dbError)
-            }
-
-            toast({
-              title: "Bond Issued Successfully",
-              description: `Bond "${formData.name}" has been issued on the blockchain`,
-            })
-
-            if (onSuccess) onSuccess()
-            return
+            // Add blockchain data to bond data
+            bondData.id = result.assetId
+            bondData.blockchain_tx_hash = result.blockchainTxHash
           }
         } catch (blockchainError) {
-          console.error("Blockchain bond issuance failed, falling back to database:", blockchainError)
+          console.error("Blockchain bond issuance failed:", blockchainError)
+          // Continue with database-only storage
         }
       }
 
-      // Fallback to database only
-      console.log("Using database for bond issuance")
-
-      const { data, error } = await supabase
+      // Save to database
+      const { data, error: dbError } = await supabase
         .from("investment_options")
-        .insert({
-          name: formData.name,
-          description: formData.description,
-          type: formData.type,
-          interest_rate: Number(formData.interestRate),
-          term_days: Number(formData.termDays),
-          min_investment: Number(formData.minInvestment),
-          available_amount: Number(formData.availableAmount),
-          status: formData.status,
-          maturity_date: maturityDate.toISOString(),
-        })
+        .insert(bondData)
         .select()
 
-      if (error) throw error
+      if (dbError) throw dbError
 
       toast({
         title: "Bond Created Successfully",
@@ -185,6 +164,16 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isBlockchainEnabled && (
+        <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-900">
+          <div className="flex items-center">
+            <div className="w-2 h-2 rounded-full bg-green-600 mr-2"></div>
+            <AlertTitle>Blockchain Enabled</AlertTitle>
+          </div>
+          <AlertDescription>This bond will be issued on the Hedera blockchain</AlertDescription>
         </Alert>
       )}
 
@@ -308,9 +297,9 @@ export function IssueBondForm({ onSuccess }: { onSuccess?: () => void }) {
             Processing...
           </>
         ) : (
-          "Issue Bond"
+          `Issue Bond${isBlockchainEnabled ? " on Blockchain" : ""}`
         )}
       </Button>
     </form>
   )
-}
+} 
